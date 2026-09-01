@@ -12,8 +12,8 @@ steps:
     echo === Debut du deploiement automatise Oracle ===
     echo Connexion a la PDB pdb1 sur la VM Linux en cours...
     
-    REM Exécution de SQLcl en passant les variables d'environnement chiffrées
-    sql $(DB_USER)/$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_SERVICE_NAME) @scripts/deploy_mfa.sql
+    REM Appel de l outil via son chemin absolu direct sous Windows
+    C:\oracle-tools\sqlcl\bin\sql.exe $(DB_USER)/$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_SERVICE_NAME) @scripts/deploy_mfa.sql
     
     echo === Fin du processus DevOps Oracle - Succes ===
   displayName: "Déploiement du schéma SQL sur Oracle Linux"
