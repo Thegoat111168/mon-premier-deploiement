@@ -6,16 +6,17 @@ pool:
 
 steps:
 - checkout: self
-  displayName: "Récupération du code GitHub"
+  displayName: "Récupération du code de structure de GitHub"
 
 - script: |
-    echo === Connexion securisee a la base de donnees ===
-    echo Nous allons simuler une action sur Oracle.
+    echo === Debut du deploiement automatise Oracle ===
+    echo Connexion a la PDB pdb1 sur la VM Linux en cours...
     
-    REM C'est un commentaire Windows propre qui ne fera pas d'erreur
-    echo "Le mot de passe utilise en memoire est : $(ORACLE_PASSWORD)"
+    REM Exécution de SQLcl en passant les variables d'environnement chiffrées
+    sql $(DB_USER)/$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_SERVICE_NAME) @scripts/deploy_mfa.sql
     
-    echo === Fin de l'action ===
-  displayName: "Test du coffre-fort de secrets"
+    echo === Fin du processus DevOps Oracle - Succes ===
+  displayName: "Déploiement du schéma SQL sur Oracle Linux"
   env:
-    ORACLE_PASSWORD: $(ORACLE_PASSWORD)
+    DB_PASSWORD: $(DB_PASSWORD)
+
