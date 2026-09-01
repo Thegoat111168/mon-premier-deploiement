@@ -8,12 +8,11 @@ steps:
 - checkout: self
   displayName: "Récupération du code GitHub"
 
-# Étape d'exécution qui utilise le secret de manière sécurisée (script au singulier)
 - script: |
     echo === Connexion securisee a la base de donnees ===
     echo Nous allons simuler une action sur Oracle.
     
-    # Le système va masquer automatiquement la variable avec des étoiles '***'
+    REM C'est un commentaire Windows propre qui ne fera pas d'erreur
     echo "Le mot de passe utilise en memoire est : $(ORACLE_PASSWORD)"
     
     echo === Fin de l'action ===
