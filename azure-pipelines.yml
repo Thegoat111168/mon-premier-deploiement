@@ -9,20 +9,25 @@ steps:
   displayName: "Récupération du code de structure de GitHub"
 
 - script: |
-    echo === Configuration locale de l environnement Java ===
-    REM On force l agent a connaitre le chemin de votre Java JRE
+    echo === Configuration de l environnement Java ===
     set JAVA_HOME=C:\SQL Developer\sqldeveloper-26.2.0.186.2220-x64\sqldeveloper\jdk\jre
     set PATH=%JAVA_HOME%\bin;%PATH%
     
     echo === Debut du deploiement automatise Oracle ===
-    echo Connexion a la PDB pdb1 sur la VM Linux en cours...
+    echo Connexion a la PDB %DB_SERVICE_NAME% sur la VM Linux (%DB_HOST%:%DB_PORT%) en cours...
     
-    REM Appel de l outil via son chemin absolu
-    C:\oracle-tools\sqlcl\bin\sql.exe $(DB_USER)/$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_SERVICE_NAME) @scripts/deploy_mfa.sql
+    REM Sous Windows, on appelle les variables avec %NOM_VAR% pour que SQLcl reçoive les vraies valeurs
+    C:\oracle-tools\sqlcl\bin\sql.exe %DB_USER%/%DB_PASSWORD%@%DB_HOST%:%DB_PORT%/%DB_SERVICE_NAME% @scripts/deploy_mfa.sql
     
     echo === Fin du processus DevOps Oracle - Succes ===
   displayName: "Déploiement du schéma SQL sur Oracle Linux"
   env:
+    # IMPORTANT : On traduit toutes les variables pour que Windows cmd.exe puisse les lire
+    DB_USER: $(DB_USER)
     DB_PASSWORD: $(DB_PASSWORD)
+    DB_HOST: $(DB_HOST)
+    DB_PORT: $(DB_PORT)
+    DB_SERVICE_NAME: $(DB_SERVICE_NAME)
+
 
 
