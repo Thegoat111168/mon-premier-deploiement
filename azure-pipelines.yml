@@ -8,17 +8,15 @@ steps:
 - checkout: self
   displayName: "Récupération du code GitHub"
 
-# Étape B : Inspecter les dossiers avec la commande Windows
+# Étape d'exécution qui utilise le secret de manière sécurisée (script au singulier)
 - script: |
-   echo === Connexion sécurisée à la base de données ===
+    echo === Connexion securisee a la base de donnees ===
     echo Nous allons simuler une action sur Oracle.
     
-    # Regardez bien la ligne ci-dessous : 
     # Le système va masquer automatiquement la variable avec des étoiles '***'
-    echo "Le mot de passe utilisé en mémoire est : $(ORACLE_PASSWORD)"
+    echo "Le mot de passe utilise en memoire est : $(ORACLE_PASSWORD)"
     
     echo === Fin de l'action ===
-    displayName: "Test du coffre-fort de secrets"
-    env:
-    # On transforme la variable Azure DevOps en variable d'environnement pour l'agent
+  displayName: "Test du coffre-fort de secrets"
+  env:
     ORACLE_PASSWORD: $(ORACLE_PASSWORD)
