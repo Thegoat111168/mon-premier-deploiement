@@ -19,6 +19,6 @@ steps:
     
     echo === Fin de l'action ===
     displayName: "Test du coffre-fort de secrets"
-  env:
+    env:
     # On transforme la variable Azure DevOps en variable d'environnement pour l'agent
     ORACLE_PASSWORD: $(ORACLE_PASSWORD)
