@@ -10,14 +10,15 @@ steps:
 
 # Étape B : Inspecter les dossiers avec la commande Windows
 - script: |
-    echo === Début de la vérification automatisée ===
-    echo Analyse des fichiers présents dans le dépôt :
-    dir /s
-  displayName: "Inspection de l'arborescence (Windows)"
-
-# Étape C : Étape de validation fictive via PowerShell
-- powershell: |
-    Write-Host "Validation syntaxique en cours..."
-    Write-Host "Fichiers vérifiés avec succès sur PC-PAUL. Aucune erreur détectée."
-  displayName: "Vérification de la conformité"
-
+   echo === Connexion sécurisée à la base de données ===
+    echo Nous allons simuler une action sur Oracle.
+    
+    # Regardez bien la ligne ci-dessous : 
+    # Le système va masquer automatiquement la variable avec des étoiles '***'
+    echo "Le mot de passe utilisé en mémoire est : $(ORACLE_PASSWORD)"
+    
+    echo === Fin de l'action ===
+    displayName: "Test du coffre-fort de secrets"
+  env:
+    # On transforme la variable Azure DevOps en variable d'environnement pour l'agent
+    ORACLE_PASSWORD: $(ORACLE_PASSWORD)
