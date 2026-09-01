@@ -4,7 +4,8 @@ trigger:
 
 # 2. L'environnement : On demande à Azure DevOps une machine virtuelle Linux
 pool:
-  vmImage: 'ubuntu-latest'
+
+  name: 'Default'
 
 # 3. Les actions à exécuter
 steps:
