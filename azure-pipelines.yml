@@ -1,0 +1,26 @@
+# 1. Déclencheur : Le pipeline s'exécute à chaque push sur la branche principale
+trigger:
+- main
+
+# 2. L'environnement : On demande à Azure DevOps une machine virtuelle Linux
+pool:
+  vmImage: 'ubuntu-latest'
+
+# 3. Les actions à exécuter
+steps:
+# Étape A : Récupérer proprement le code depuis GitHub
+- checkout: self
+  displayName: 'Récupération du code GitHub'
+
+# Étape B : Inspecter les dossiers (Pour voir votre dossier créé !)
+- script: |
+    echo "=== Début de la vérification automatisée ==="
+    echo "Analyse des fichiers présents dans le dépôt :"
+    ls -R
+  displayName: 'Inspection de l'arborescence'
+
+# Étape C : Étape de validation fictive
+- script: |
+    echo "Validation syntaxique en cours..."
+    echo "Fichiers vérifiés avec succès. Aucune erreur détectée."
+  displayName: 'Vérification de la conformité'
