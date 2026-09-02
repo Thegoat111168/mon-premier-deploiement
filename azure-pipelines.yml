@@ -61,6 +61,15 @@ steps:
         exit 1 # On renvoie le code d'erreur 1 pour faire passer l'étape au rouge et stopper le pipeline
     }
   displayName: "Audit de conformité et de sécurité SQL par IA"
+  # [Insérer ce bloc juste en dessous de votre étape powershell d'audit IA]
+- task: PublishBuildArtifacts@1
+  displayName: "Sauvegarde du Rapport d'Audit IA dans les Artefacts"
+  inputs:
+     PathtoPublish: '$(Build.SourcesDirectory)\scripts\rapport_audit.md'
+     ArtifactName: "Rapports-SecOps"
+     publishLocation: "Container"
+  # Cette condition essentielle dit à Azure DevOps : "Même si le Linter passe au ROUGE ou échoue, publie quand même le rapport !"
+  condition: always() 
 
 # 3. ÉTAPE EXISTANTE : Déploiement final par SQLcl
 - script: |
