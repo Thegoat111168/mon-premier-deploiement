@@ -8,53 +8,67 @@ steps:
 - checkout: self
   displayName: "Récupération du code de structure de GitHub"
 
-# Étape IA LOCALE Ollama avec le nom de fichier corrigé
+# 1. ÉTAPE EXISTANTE : Génération du rollback
 - powershell: |
-    Write-Host "=== Connexion a l'IA Locale Ollama ==="
-    
-    # 1. Alignement sur le nom réel de votre fichier sur GitHub
+    Write-Host "=== Connexion a l'IA Locale Ollama - Rollback ==="
     $scriptPath = "$(Build.SourcesDirectory)\scripts\deploy_tables.sql"
-    
-    if (-not (Test-Path $scriptPath)) {
-        Write-Error "Le fichier $scriptPath n'a pas été trouvé."
-        exit 1
-    }
-    
     $sqlContent = Get-Content -Path $scriptPath -Raw
-    
-    # 2. Demande d'analyse au modèle Qwen local
-    $prompt = "Tu es un expert DBA Oracle Senior. Analyse ce script de déploiement et génère exclusivement le script de rollback (retour en arrière) SQL inverse exact (DROP, DELETE, etc.). Ne mets aucun texte d'explication, pas de blabla, pas de balises Markdown (n'utilise pas de blocs de code avec triple accent grave). Renvoie uniquement le code SQL exécutable se terminant par EXIT;`n`nScript à analyser :`n$sqlContent"
-    
-    $bodyObj = @{
-        model = "qwen2.5-coder:14b" 
-        prompt = $prompt
-        stream = $false
-    }
+    $prompt = "Tu es un expert DBA Oracle Senior. Analyse ce script de déploiement et génère exclusivement le script de rollback (retour en arrière) SQL inverse exact (DROP, DELETE, etc.). Ne mets aucun texte d'explication, pas de blabla, pas de balises Markdown. Renvoie uniquement le code SQL exécutable se terminant par EXIT;`n`nScript à analyser :`n$sqlContent"
+    $bodyObj = @{ model = "qwen2.5-coder:14b"; prompt = $prompt; stream = $false }
     $bodyJson = ConvertTo-Json -InputObject $bodyObj -Depth 5 -Compress
-    
-    Write-Host "Qwen2.5-Coder génère le script de secours en local..."
     $response = Invoke-RestMethod -Uri "http://localhost:11434/api/generate" -Method Post -ContentType "application/json; charset=utf-8" -Body $bodyJson
-    
-    $rollbackSql = $response.response
-    
-    # 3. Sauvegarde automatique du rollback généré à côté du script principal
     $outputPath = "$(Build.SourcesDirectory)\scripts\rollback_mfa.sql"
-    $rollbackSql | Out-File -FilePath $outputPath -Encoding utf8
-    Write-Host "=== [SUCCESS] Le plan de secours a été généré par Ollama dans $outputPath ==="
+    $response.response | Out-File -FilePath $outputPath -Encoding utf8
+    Write-Host "=== [SUCCESS] Rollback généré ==="
   displayName: "Génération du plan de secours par IA Locale (Ollama)"
 
-# Étape d'exécution SQLcl avec le nom de fichier corrigé
+# 2. NOUVELLE ÉTAPE : Le Linter SQL par IA
+- powershell: |
+    Write-Host "=== Lancement de l'audit de qualite SQL par l'IA ==="
+    
+    # Lecture du code SQL à auditer
+    $scriptPath = "$(Build.SourcesDirectory)\scripts\deploy_tables.sql"
+    $sqlContent = Get-Content -Path $scriptPath -Raw
+    
+    # Prompt de cadrage strict pour le comportement de Linter
+    $prompt = "Tu es un expert en audit de code Oracle PL/SQL et SecOps. Analyse le script SQL fourni pour détecter les failles de sécurité (injections, privilèges trop élevés), les problèmes de performance (index manquants, requêtes lourdes) ou de syntaxe. 
+    Règles de réponse :
+    1. Si le code respecte parfaitement les bonnes pratiques Oracle, commence obligatoirement ta réponse par le mot exact : VALIDE
+    2. Si tu trouves des défauts ou des risques majeurs, commence obligatoirement ta réponse par le mot exact : REFUSE, suivi de la liste claire des problèmes identifiés.
+    
+    Script à analyser :
+    $sqlContent"
+    
+    # Préparation et envoi de la requête à Ollama
+    $bodyObj = @{ model = "qwen2.5-coder:14b"; prompt = $prompt; stream = $false; temperature = 0.0 }
+    $bodyJson = ConvertTo-Json -InputObject $bodyObj -Depth 5 -Compress
+    
+    Write-Host "Qwen2.5-Coder audite les structures de la base de données..."
+    $response = Invoke-RestMethod -Uri "http://localhost:11434/api/generate" -Method Post -ContentType "application/json; charset=utf-8" -Body $bodyJson
+    
+    $auditResult = $response.response
+    
+    # Affichage du rapport d'audit complet de l'IA dans les logs de la console
+    Write-Host "`n=== RAPPORT D'AUDIT IA ==="
+    Write-Host $auditResult
+    Write-Host "==========================`n"
+    
+    # Logique de contrôle DevOps pour bloquer ou accepter le build
+    if ($auditResult -match "^VALIDE") {
+        Write-Host "=== [SUCCESS] L'IA a validé le script SQL. Autorisation de déploiement accordée. ==="
+    } else {
+        Write-Error "=== [FAILLE TECHNIQUE DETECTEE] L'IA a refusé ce script SQL pour non-conformité. Déploiement annulé. ==="
+        exit 1 # On renvoie le code d'erreur 1 pour faire passer l'étape au rouge et stopper le pipeline
+    }
+  displayName: "Audit de conformité et de sécurité SQL par IA"
+
+# 3. ÉTAPE EXISTANTE : Déploiement final par SQLcl
 - script: |
     echo === Configuration de l environnement Java ===
     set JAVA_HOME=C:\SQL Developer\sqldeveloper-26.2.0.186.2220-x64\sqldeveloper\jdk\jre
     set PATH=%JAVA_HOME%\bin;%PATH%
-    
     echo === Debut du deploiement automatise Oracle ===
-    echo Connexion a la PDB %DB_SERVICE_NAME% sur la VM Linux (%DB_HOST%:%DB_PORT%) en cours...
-    
-    REM Appel de SQLcl ciblant le bon script deploy_tables.sql
     C:\oracle-tools\sqlcl\bin\sql.exe %DB_USER%/%DB_PASSWORD%@%DB_HOST%:%DB_PORT%/%DB_SERVICE_NAME% @scripts/deploy_tables.sql
-    
     echo === Fin du processus DevOps Oracle - Succes ===
   displayName: "Déploiement du schéma SQL sur Oracle Linux"
   env:
@@ -63,3 +77,4 @@ steps:
     DB_HOST: $(DB_HOST)
     DB_PORT: $(DB_PORT)
     DB_SERVICE_NAME: $(DB_SERVICE_NAME)
+
