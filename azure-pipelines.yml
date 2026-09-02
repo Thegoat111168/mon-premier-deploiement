@@ -22,7 +22,7 @@ steps:
     Write-Host "=== [SUCCESS] Rollback généré ==="
   displayName: "Génération du plan de secours par IA Locale (Ollama)"
 
-# 2. NOUVELLE ÉTAPE : Le Linter SQL par IA
+# 2. NOUVELLE ÉTAPE : Le Linter SQL par IA (Version Sécurisée)
 - powershell: |
     Write-Host "=== Lancement de l'audit de qualite SQL par l'IA ==="
     
@@ -53,23 +53,32 @@ steps:
     Write-Host $auditResult
     Write-Host "==========================`n"
     
+    # GARANTIE DE L'EXISTENCE DU DOSSIER CIBLE
+    $targetDir = "$(Build.SourcesDirectory)\scripts"
+    if (!(Test-Path -Path $targetDir)) {
+        New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+    }
+    
+    # ÉCRITURE DU RAPPORT SUR LE DISQUE
+    $auditResult | Out-File -FilePath "$targetDir\rapport_audit.md" -Encoding utf8
+    
     # Logique de contrôle DevOps pour bloquer ou accepter le build
     if ($auditResult -match "^VALIDE") {
         Write-Host "=== [SUCCESS] L'IA a validé le script SQL. Autorisation de déploiement accordée. ==="
     } else {
         Write-Error "=== [FAILLE TECHNIQUE DETECTEE] L'IA a refusé ce script SQL pour non-conformité. Déploiement annulé. ==="
-        exit 1 # On renvoie le code d'erreur 1 pour faire passer l'étape au rouge et stopper le pipeline
+        exit 1
     }
   displayName: "Audit de conformité et de sécurité SQL par IA"
-  # [Insérer ce bloc juste en dessous de votre étape powershell d'audit IA]
+
+# 2.5 PUBLICATION DE L'ARTEFACT
 - task: PublishBuildArtifacts@1
   displayName: "Sauvegarde du Rapport d'Audit IA dans les Artefacts"
-  inputs:
-     PathtoPublish: '$(Build.SourcesDirectory)\scripts\rapport_audit.md'
-     ArtifactName: "Rapports-SecOps"
-     publishLocation: "Container"
-  # Cette condition essentielle dit à Azure DevOps : "Même si le Linter passe au ROUGE ou échoue, publie quand même le rapport !"
   condition: always() 
+  inputs:
+    PathtoPublish: '$(Build.SourcesDirectory)\scripts\rapport_audit.md'
+    ArtifactName: 'Rapports-SecOps'
+    publishLocation: 'Container'
 
 # 3. ÉTAPE EXISTANTE : Déploiement final par SQLcl
 - script: |
@@ -86,4 +95,3 @@ steps:
     DB_HOST: $(DB_HOST)
     DB_PORT: $(DB_PORT)
     DB_SERVICE_NAME: $(DB_SERVICE_NAME)
-
