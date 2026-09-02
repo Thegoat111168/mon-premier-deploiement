@@ -1,28 +1,30 @@
-# 1. Déclencheur : Le pipeline s'exécute automatiquement à chaque push sur la branche principale
 trigger:
 - main
 
-# 2. L'environnement : On cible explicitement votre ordinateur personnel comme agent de build
 pool:
   name: 'Default'
 
-# 3. La liste des étapes d'automatisation
 steps:
-# Étape A : Téléchargement automatique de tout le code depuis GitHub sur votre PC
 - checkout: self
   displayName: "Récupération du code de structure de GitHub"
 
-# Étape B : L'agent Windows interroge votre Ollama local pour rédiger le plan de secours
+# Étape IA LOCALE Ollama avec le nom de fichier corrigé
 - powershell: |
     Write-Host "=== Connexion a l'IA Locale Ollama ==="
     
-    # 1. Lecture du script de déploiement qui vient d'être téléchargé de GitHub
-    $sqlContent = Get-Content -Path "scripts/deploy_mfa.sql" -Raw
+    # 1. Alignement sur le nom réel de votre fichier sur GitHub
+    $scriptPath = "$(Build.SourcesDirectory)\scripts\deploy_tables.sql"
     
-    # 2. Construction du prompt strict pour forcer Qwen à ne générer que du code SQL Oracle valide
+    if (-not (Test-Path $scriptPath)) {
+        Write-Error "Le fichier $scriptPath n'a pas été trouvé."
+        exit 1
+    }
+    
+    $sqlContent = Get-Content -Path $scriptPath -Raw
+    
+    # 2. Demande d'analyse au modèle Qwen local
     $prompt = "Tu es un expert DBA Oracle Senior. Analyse ce script de déploiement et génère exclusivement le script de rollback (retour en arrière) SQL inverse exact (DROP, DELETE, etc.). Ne mets aucun texte d'explication, pas de blabla, pas de balises Markdown (n'utilise pas de blocs de code avec triple accent grave). Renvoie uniquement le code SQL exécutable se terminant par EXIT;`n`nScript à analyser :`n$sqlContent"
     
-    # 3. Préparation du corps de la requête au format JSON pour Ollama
     $bodyObj = @{
         model = "qwen2.5-coder:14b" 
         prompt = $prompt
@@ -30,35 +32,32 @@ steps:
     }
     $bodyJson = ConvertTo-Json -InputObject $bodyObj -Depth 5 -Compress
     
-    # 4. Appel de l'API locale d'Ollama (votre PC utilise ses 32 Go de RAM pour faire tourner le modèle)
     Write-Host "Qwen2.5-Coder génère le script de secours en local..."
     $response = Invoke-RestMethod -Uri "http://localhost:11434/api/generate" -Method Post -ContentType "application/json; charset=utf-8" -Body $bodyJson
     
-    # 5. Extraction du texte généré par l'IA
     $rollbackSql = $response.response
     
-    # 6. Sauvegarde physique du fichier de rollback généré sur votre disque dur (PC-PAUL)
-    $rollbackSql | Out-File -FilePath "scripts/rollback_mfa.sql" -Encoding utf8
-    Write-Host "=== [SUCCESS] Le plan de secours a été généré par Ollama dans scripts/rollback_mfa.sql ==="
+    # 3. Sauvegarde automatique du rollback généré à côté du script principal
+    $outputPath = "$(Build.SourcesDirectory)\scripts\rollback_mfa.sql"
+    $rollbackSql | Out-File -FilePath $outputPath -Encoding utf8
+    Write-Host "=== [SUCCESS] Le plan de secours a été généré par Ollama dans $outputPath ==="
   displayName: "Génération du plan de secours par IA Locale (Ollama)"
 
-# Étape C : L'agent appelle SQLcl, charge le Java de SQL Developer et applique le script sur Linux
+# Étape d'exécution SQLcl avec le nom de fichier corrigé
 - script: |
     echo === Configuration de l environnement Java ===
-    REM Configuration temporaire pour forcer Windows à trouver le moteur Java de votre SQL Developer
     set JAVA_HOME=C:\SQL Developer\sqldeveloper-26.2.0.186.2220-x64\sqldeveloper\jdk\jre
     set PATH=%JAVA_HOME%\bin;%PATH%
     
     echo === Debut du deploiement automatise Oracle ===
     echo Connexion a la PDB %DB_SERVICE_NAME% sur la VM Linux (%DB_HOST%:%DB_PORT%) en cours...
     
-    REM Exécution de SQLcl via son chemin absolu en transmettant la chaîne de connexion chiffrée
-    C:\oracle-tools\sqlcl\bin\sql.exe %DB_USER%/%DB_PASSWORD%@%DB_HOST%:%DB_PORT%/%DB_SERVICE_NAME% @scripts/deploy_mfa.sql
+    REM Appel de SQLcl ciblant le bon script deploy_tables.sql
+    C:\oracle-tools\sqlcl\bin\sql.exe %DB_USER%/%DB_PASSWORD%@%DB_HOST%:%DB_PORT%/%DB_SERVICE_NAME% @scripts/deploy_tables.sql
     
     echo === Fin du processus DevOps Oracle - Succes ===
   displayName: "Déploiement du schéma SQL sur Oracle Linux"
   env:
-    # Passerelle obligatoire : Traduction sécurisée de vos 5 variables d'Azure DevOps vers l'environnement Windows
     DB_USER: $(DB_USER)
     DB_PASSWORD: $(DB_PASSWORD)
     DB_HOST: $(DB_HOST)
